@@ -87,14 +87,15 @@ const helmetOptions = {
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://www.virustotal.com", "https://api.abuseipdb.com"],
+      connectSrc: ["'self'", "https://www.virustotal.com", "https://api.abuseipdb.com", "https://accounts.google.com", "https://securetoken.googleapis.com"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow popup communication
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
@@ -137,7 +138,8 @@ const errorHandler = (err, req, res, next) => {
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
       success: false,
-      error: 'CORS policy violation'
+      error: true,
+      message: 'CORS policy violation'
     });
   }
 
@@ -145,7 +147,8 @@ const errorHandler = (err, req, res, next) => {
   if (err.status === 429) {
     return res.status(429).json({
       success: false,
-      error: 'Too many requests, please try again later'
+      error: true,
+      message: 'Too many requests, please try again later'
     });
   }
 
@@ -153,14 +156,16 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       success: false,
-      error: 'Invalid token'
+      error: true,
+      message: 'Invalid token'
     });
   }
 
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       success: false,
-      error: 'Token expired'
+      error: true,
+      message: 'Token expired'
     });
   }
 
@@ -168,7 +173,8 @@ const errorHandler = (err, req, res, next) => {
   if (err.isJoi) {
     return res.status(400).json({
       success: false,
-      error: err.details[0].message
+      error: true,
+      message: err.details[0].message
     });
   }
 
@@ -176,14 +182,16 @@ const errorHandler = (err, req, res, next) => {
   if (err.code && err.code.startsWith('23')) {
     return res.status(400).json({
       success: false,
-      error: 'Database constraint violation'
+      error: true,
+      message: 'Database constraint violation'
     });
   }
 
   // Default error
   res.status(500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' 
+    error: true,
+    message: process.env.NODE_ENV === 'production' 
       ? 'Internal server error' 
       : err.message
   });
@@ -193,7 +201,8 @@ const errorHandler = (err, req, res, next) => {
 const notFoundHandler = (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'API endpoint not found',
+    error: true,
+    message: 'API endpoint not found',
     path: req.originalUrl
   });
 };

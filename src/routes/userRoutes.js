@@ -43,23 +43,17 @@ router.post('/register', async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
-      console.log('User exists, updating...');
-      // Update existing user
-      await pool.query(
-        'UPDATE users SET email = $1, display_name = $2, photo_url = $3, updated_at = NOW() WHERE id = $4',
-        [email, displayName, photoURL, uid]
-      );
-
-      console.log('User updated successfully');
-      return res.json({
-        success: true,
-        message: 'User updated successfully',
+      console.log('User already exists, returning 409');
+      return res.status(409).json({
+        success: false,
+        error: true,
+        message: 'User already exists',
         data: {
           uid,
           email,
           displayName,
           photoURL,
-          admin: false // Default to false since admin column doesn't exist
+          admin: false
         }
       });
     }
