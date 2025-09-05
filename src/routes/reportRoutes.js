@@ -452,7 +452,7 @@ router.get('/reports/my', authenticateUser, async (req, res) => {
 });
 
 // GET /api/reports/analytics - Get threat reports analytics for analytics page
-router.get('/reports/analytics', authenticateUser, async (req, res) => {
+router.get('/analytics', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 
