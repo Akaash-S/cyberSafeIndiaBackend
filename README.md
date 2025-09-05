@@ -162,7 +162,7 @@ Authorization: Bearer <firebase_token>
 NODE_ENV=production
 DATABASE_URL=your_production_database_url
 PORT=5000
-FRONTEND_URL=https://your-frontend-domain.com
+FRONTEND_URL=https://cybersafe-india.vercel.app
 EXTENSION_URL=chrome-extension://your-extension-id
 ```
 

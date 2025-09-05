@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: cybersafe-india-backend
+    env: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      # Add your environment variables here:
+      # - key: DATABASE_URL
+      #   sync: false  # Set this in Render dashboard
+      # - key: VIRUSTOTAL_API_KEY
+      #   sync: false  # Set this in Render dashboard
+      # - key: ABUSEIPDB_API_KEY
+      #   sync: false  # Set this in Render dashboard
+      # - key: FRONTEND_URL
+      #   value: https://cybersafe-india.vercel.app
+      # - key: EXTENSION_URL
+      #   value: chrome-extension://your_extension_id
+
+databases:
+  - name: cybersafe-india-db
+    plan: starter
+    # This will create a PostgreSQL database
+    # The DATABASE_URL will be automatically set
