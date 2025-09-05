@@ -19,7 +19,7 @@ const deleteSchema = Joi.object({
 });
 
 // GET /api/history - Get user's scan history
-router.get('/history', authenticateUser, async (req, res) => {
+router.get('/', authenticateUser, async (req, res) => {
   try {
     // Validate query parameters
     const { error, value } = paginationSchema.validate(req.query);
@@ -117,7 +117,7 @@ router.get('/history', authenticateUser, async (req, res) => {
 });
 
 // GET /api/history/stats - Get scan statistics for user
-router.get('/history/stats', authenticateUser, async (req, res) => {
+router.get('/stats', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 
@@ -205,7 +205,7 @@ router.get('/history/stats', authenticateUser, async (req, res) => {
 });
 
 // DELETE /api/history/:id - Delete specific scan entry
-router.delete('/history/:id', authenticateUser, async (req, res) => {
+router.delete('/:id', authenticateUser, async (req, res) => {
   try {
     // Validate ID parameter
     const { error, value } = deleteSchema.validate({ id: req.params.id });
@@ -248,7 +248,7 @@ router.delete('/history/:id', authenticateUser, async (req, res) => {
 });
 
 // DELETE /api/history - Delete all scans for user
-router.delete('/history', authenticateUser, async (req, res) => {
+router.delete('/', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 
@@ -274,7 +274,7 @@ router.delete('/history', authenticateUser, async (req, res) => {
 });
 
 // GET /api/history/export - Export scan history as CSV
-router.get('/history/export', authenticateUser, async (req, res) => {
+router.get('/export', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 

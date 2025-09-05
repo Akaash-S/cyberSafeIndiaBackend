@@ -18,7 +18,7 @@ const paginationSchema = Joi.object({
 });
 
 // GET /api/analytics/overview - Get overall analytics overview
-router.get('/analytics/overview', authenticateUser, async (req, res) => {
+router.get('/overview', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 
@@ -104,7 +104,7 @@ router.get('/analytics/overview', authenticateUser, async (req, res) => {
 });
 
 // GET /api/analytics/trends - Get scan trends over time
-router.get('/analytics/trends', authenticateUser, async (req, res) => {
+router.get('/trends', authenticateUser, async (req, res) => {
   try {
     const { error, value } = timeRangeSchema.validate(req.query);
     if (error) {
@@ -186,7 +186,7 @@ router.get('/analytics/trends', authenticateUser, async (req, res) => {
 });
 
 // GET /api/analytics/threats - Get threat analysis
-router.get('/analytics/threats', authenticateUser, async (req, res) => {
+router.get('/threats', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
 
@@ -281,7 +281,7 @@ router.get('/analytics/threats', authenticateUser, async (req, res) => {
 });
 
 // GET /api/analytics/admin - Get admin analytics (admin only)
-router.get('/analytics/admin', requireAdmin, async (req, res) => {
+router.get('/admin', requireAdmin, async (req, res) => {
   try {
     // Get system-wide statistics
     const systemStatsQuery = `
@@ -398,7 +398,7 @@ router.get('/analytics/admin', requireAdmin, async (req, res) => {
 });
 
 // GET /api/analytics/export - Export analytics data
-router.get('/analytics/export', authenticateUser, async (req, res) => {
+router.get('/export', authenticateUser, async (req, res) => {
   try {
     const userId = req.user.uid;
     const { format = 'csv' } = req.query;

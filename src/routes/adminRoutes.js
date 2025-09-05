@@ -19,7 +19,7 @@ const userActionSchema = Joi.object({
 });
 
 // GET /api/admin/users - Get all users (admin only)
-router.get('/admin/users', requireAdmin, async (req, res) => {
+router.get('/users', requireAdmin, async (req, res) => {
   try {
     // Validate query parameters
     const { error, value } = paginationSchema.validate(req.query);
@@ -98,7 +98,7 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/user/:id - Get specific user details (admin only)
-router.get('/admin/user/:id', requireAdmin, async (req, res) => {
+router.get('/user/:id', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
 
@@ -219,7 +219,7 @@ router.get('/admin/user/:id', requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/admin/user/:id - Delete user (admin only)
-router.delete('/admin/user/:id', requireAdmin, async (req, res) => {
+router.delete('/user/:id', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
 
@@ -253,7 +253,7 @@ router.delete('/admin/user/:id', requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/system - Get system information (admin only)
-router.get('/admin/system', requireAdmin, async (req, res) => {
+router.get('/system', requireAdmin, async (req, res) => {
   try {
     // Get system statistics
     const systemStatsQuery = `
@@ -342,7 +342,7 @@ router.get('/admin/system', requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/flagged - Get flagged URLs and domains (admin only)
-router.get('/admin/flagged', requireAdmin, async (req, res) => {
+router.get('/flagged', requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
@@ -417,7 +417,7 @@ router.get('/admin/flagged', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/maintenance - Perform maintenance tasks (admin only)
-router.post('/admin/maintenance', requireAdmin, async (req, res) => {
+router.post('/maintenance', requireAdmin, async (req, res) => {
   try {
     const { action } = req.body;
 

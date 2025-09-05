@@ -14,7 +14,7 @@ const userRegistrationSchema = Joi.object({
 });
 
 // POST /api/user/register - Register a new user (called from frontend after Firebase auth)
-router.post('/user/register', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     // Validate request body
     const { error, value } = userRegistrationSchema.validate(req.body);
@@ -84,7 +84,7 @@ router.post('/user/register', async (req, res) => {
 });
 
 // GET /api/user/profile - Get user profile
-router.get('/user/profile', async (req, res) => {
+router.get('/profile', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const userData = authHeader && authHeader.split(' ')[1];
@@ -142,7 +142,7 @@ router.get('/user/profile', async (req, res) => {
 });
 
 // PUT /api/user/profile - Update user profile
-router.put('/user/profile', async (req, res) => {
+router.put('/profile', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const userData = authHeader && authHeader.split(' ')[1];

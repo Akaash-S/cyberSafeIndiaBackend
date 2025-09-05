@@ -16,7 +16,7 @@ const scanUrlSchema = Joi.object({
 });
 
 // POST /api/scan - Scan a URL
-router.post('/scan', optionalAuth, async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     // Validate request body
     const { error, value } = scanUrlSchema.validate(req.body);
@@ -114,7 +114,7 @@ router.post('/scan', optionalAuth, async (req, res) => {
 });
 
 // POST /api/scan/batch - Scan multiple URLs
-router.post('/scan/batch', authenticateUser, async (req, res) => {
+router.post('/batch', authenticateUser, async (req, res) => {
   try {
     const { urls } = req.body;
 
