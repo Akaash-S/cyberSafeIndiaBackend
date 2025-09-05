@@ -1,6 +1,14 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Check if DATABASE_URL is provided
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  console.error('Please create a .env file with your database connection string');
+  console.error('Example: DATABASE_URL=postgresql://username:password@hostname:port/database');
+  process.exit(1);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -56,6 +64,7 @@ const initializeDatabase = async () => {
         id VARCHAR(255) PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         display_name VARCHAR(255),
+        photo_url TEXT,
         admin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW(),
         last_login TIMESTAMP DEFAULT NOW()

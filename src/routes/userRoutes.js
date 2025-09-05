@@ -8,8 +8,8 @@ const router = express.Router();
 const userRegistrationSchema = Joi.object({
   uid: Joi.string().required(),
   email: Joi.string().email().required(),
-  displayName: Joi.string().optional(),
-  photoURL: Joi.string().uri().optional(),
+  displayName: Joi.string().allow('').optional(),
+  photoURL: Joi.string().allow('').optional(),
   admin: Joi.boolean().default(false)
 });
 
@@ -36,8 +36,8 @@ router.post('/register', async (req, res) => {
     if (existingUser.rows.length > 0) {
       // Update existing user
       await pool.query(
-        'UPDATE users SET email = $1, display_name = $2, last_login = NOW() WHERE id = $3',
-        [email, displayName, uid]
+        'UPDATE users SET email = $1, display_name = $2, photo_url = $3, updated_at = NOW() WHERE id = $4',
+        [email, displayName, photoURL, uid]
       );
 
       return res.json({
@@ -48,15 +48,15 @@ router.post('/register', async (req, res) => {
           email,
           displayName,
           photoURL,
-          admin: existingUser.rows[0].admin || false
+          admin: false // Default to false since admin column doesn't exist
         }
       });
     }
 
     // Create new user
     const result = await pool.query(
-      'INSERT INTO users (id, email, display_name, admin, created_at, last_login) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id, email, display_name, admin, created_at',
-      [uid, email, displayName, admin || false]
+      'INSERT INTO users (id, email, display_name, photo_url, firebase_uid, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id, email, display_name, photo_url, firebase_uid, created_at',
+      [uid, email, displayName, photoURL, uid]
     );
 
     const newUser = result.rows[0];
@@ -68,17 +68,24 @@ router.post('/register', async (req, res) => {
         uid: newUser.id,
         email: newUser.email,
         displayName: newUser.display_name,
-        photoURL,
-        admin: newUser.admin,
+        photoURL: newUser.photo_url,
+        admin: false, // Default to false since admin column doesn't exist
         createdAt: newUser.created_at
       }
     });
 
   } catch (error) {
     console.error('User registration error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to register user'
+      error: 'Failed to register user',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
@@ -107,7 +114,7 @@ router.get('/profile', async (req, res) => {
 
     // Get user profile from database
     const result = await pool.query(
-      'SELECT id, email, display_name, admin, created_at, last_login FROM users WHERE id = $1',
+      'SELECT id, email, display_name, photo_url, firebase_uid, created_at, updated_at FROM users WHERE id = $1',
       [user.uid]
     );
 
@@ -126,17 +133,25 @@ router.get('/profile', async (req, res) => {
         uid: userProfile.id,
         email: userProfile.email,
         displayName: userProfile.display_name,
-        admin: userProfile.admin,
+        photoURL: userProfile.photo_url,
+        admin: false, // Default to false since admin column doesn't exist
         createdAt: userProfile.created_at,
-        lastLogin: userProfile.last_login
+        lastLogin: userProfile.updated_at // Use updated_at as lastLogin
       }
     });
 
   } catch (error) {
     console.error('User profile fetch error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch user profile'
+      error: 'Failed to fetch user profile',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
