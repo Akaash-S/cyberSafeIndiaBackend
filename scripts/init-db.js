@@ -13,6 +13,9 @@ async function initDatabase() {
     console.log('   - users');
     console.log('   - scans');
     console.log('   - reports');
+    console.log('   - safe_urls');
+    console.log('   - threat_urls');
+    console.log('   - url_reputation');
     console.log('   - Indexes created for optimal performance');
     
     process.exit(0);

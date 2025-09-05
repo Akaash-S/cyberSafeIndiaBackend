@@ -161,29 +161,36 @@ class AbuseIPService {
       };
     }
 
+    // More conservative thresholds for better accuracy
     if (abuseConfidence >= 75) {
       return {
         status: 'malicious',
         confidence: abuseConfidence,
         details: `High abuse confidence (${abuseConfidence}%) with ${totalReports} reports`
       };
-    } else if (abuseConfidence >= 25) {
+    } else if (abuseConfidence >= 50) {
       return {
         status: 'suspicious',
         confidence: abuseConfidence,
         details: `Moderate abuse confidence (${abuseConfidence}%) with ${totalReports} reports`
       };
-    } else if (totalReports > 0) {
+    } else if (abuseConfidence >= 25) {
       return {
-        status: 'low_risk',
-        confidence: 100 - abuseConfidence,
+        status: 'suspicious',
+        confidence: abuseConfidence,
         details: `Low abuse confidence (${abuseConfidence}%) with ${totalReports} reports`
+      };
+    } else if (totalReports > 5) {
+      return {
+        status: 'suspicious',
+        confidence: abuseConfidence,
+        details: `Multiple reports (${totalReports}) with low confidence (${abuseConfidence}%)`
       };
     } else {
       return {
         status: 'safe',
-        confidence: 100,
-        details: 'No abuse reports found'
+        confidence: 100 - abuseConfidence,
+        details: 'No significant abuse reports found'
       };
     }
   }

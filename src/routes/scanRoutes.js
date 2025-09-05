@@ -4,6 +4,7 @@ const { authenticateUser, optionalAuth } = require('../middleware/authMiddleware
 const { pool } = require('../config/db');
 const virusTotalService = require('../services/virusTotalService');
 const abuseIpService = require('../services/abuseIpService');
+const reputationService = require('../services/reputationService');
 
 const router = express.Router();
 
@@ -29,6 +30,41 @@ router.post('/', optionalAuth, async (req, res) => {
 
     const { url } = value;
     const userId = req.user?.uid || null;
+
+    // First, check URL reputation in community database
+    const reputationResult = await reputationService.checkUrlReputation(url);
+    let communityReputation = null;
+    
+    if (reputationResult.success && reputationResult.data) {
+      const reputation = reputationResult.data;
+      
+      // If URL has known threat reputation, return it immediately
+      if (reputation.reputation === 'threat') {
+        return res.json({
+          success: true,
+          data: {
+            url: url,
+            status: 'malicious',
+            confidence: reputation.confidence || 95,
+            details: {
+              community: {
+                reputation: 'threat',
+                threatType: reputation.threatType,
+                severity: reputation.severity,
+                reportCount: reputation.reportCount,
+                source: reputation.source
+              }
+            },
+            scanDate: new Date().toISOString(),
+            cached: false,
+            fromReputation: true
+          }
+        });
+      } else if (reputation.reputation === 'safe') {
+        // Store community reputation but still perform full scan for verification
+        communityReputation = reputation;
+      }
+    }
 
     // Check if URL was recently scanned (within last 5 minutes)
     if (userId) {
@@ -66,6 +102,14 @@ router.post('/', optionalAuth, async (req, res) => {
 
     // Determine overall threat status
     const overallStatus = determineOverallStatus(virusTotalData, abuseIpData);
+    
+    // Log scan results for debugging
+    console.log(`Scan results for ${url}:`, {
+      virusTotal: virusTotalData?.success ? virusTotalService.analyzeThreatLevel(virusTotalData.data) : 'Failed',
+      abuseIPDB: abuseIpData?.success ? abuseIpService.analyzeThreatLevel(abuseIpData.data) : 'Failed',
+      overallStatus: overallStatus,
+      communityReputation: communityReputation
+    });
 
     // Prepare response data
     const scanResult = {
@@ -74,7 +118,13 @@ router.post('/', optionalAuth, async (req, res) => {
       confidence: overallStatus.confidence,
       details: {
         virustotal: virusTotalData?.success ? virusTotalData.data : null,
-        abuseipdb: abuseIpData?.success ? abuseIpData.data : null
+        abuseipdb: abuseIpData?.success ? abuseIpData.data : null,
+        community: communityReputation ? {
+          reputation: communityReputation.reputation,
+          reportCount: communityReputation.reportCount,
+          source: communityReputation.source,
+          note: 'Community reputation available but full scan performed for verification'
+        } : null
       },
       scanDate: new Date().toISOString(),
       cached: false
@@ -246,39 +296,132 @@ function determineOverallStatus(virusTotalData, abuseIpData) {
     abuseIpService.analyzeThreatLevel(abuseIpData.data) : 
     { status: 'unknown', confidence: 0 };
 
-  // Priority: malicious > suspicious > safe > unknown
+  // Debug logging
+  console.log('=== SCAN DEBUG ===');
+  console.log('VirusTotal Status:', virusTotalStatus);
+  console.log('AbuseIPDB Status:', abuseIpStatus);
+
+  // More balanced approach to threat detection
+  // If either service detects malicious, mark as malicious
   if (virusTotalStatus.status === 'malicious' || abuseIpStatus.status === 'malicious') {
     return {
       status: 'malicious',
-      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence)
+      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence),
+      details: `Malicious detected: VT(${virusTotalStatus.status}) AB(${abuseIpStatus.status})`
     };
   }
 
-  if (virusTotalStatus.status === 'suspicious' || abuseIpStatus.status === 'suspicious') {
+  // If both services detect suspicious, mark as suspicious
+  if (virusTotalStatus.status === 'suspicious' && abuseIpStatus.status === 'suspicious') {
     return {
       status: 'suspicious',
-      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence)
+      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence),
+      details: `Both services suspicious: VT(${virusTotalStatus.confidence}%) AB(${abuseIpStatus.confidence}%)`
     };
   }
 
+  // If one service is suspicious and the other is safe/unknown, be cautious but not overly aggressive
+  if ((virusTotalStatus.status === 'suspicious' && (abuseIpStatus.status === 'safe' || abuseIpStatus.status === 'unknown')) ||
+      (abuseIpStatus.status === 'suspicious' && (virusTotalStatus.status === 'safe' || virusTotalStatus.status === 'unknown'))) {
+    return {
+      status: 'suspicious',
+      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence),
+      details: `One service suspicious: VT(${virusTotalStatus.status}) AB(${abuseIpStatus.status})`
+    };
+  }
+
+  // If both services confirm safe, mark as safe
   if (virusTotalStatus.status === 'safe' && abuseIpStatus.status === 'safe') {
     return {
       status: 'safe',
-      confidence: Math.min(virusTotalStatus.confidence, abuseIpStatus.confidence)
+      confidence: Math.min(virusTotalStatus.confidence, abuseIpStatus.confidence),
+      details: `Both services safe: VT(${virusTotalStatus.confidence}%) AB(${abuseIpStatus.confidence}%)`
     };
   }
 
-  if (virusTotalStatus.status === 'safe' || abuseIpStatus.status === 'safe') {
+  // If one service is safe and the other is unknown, lean towards safe
+  if ((virusTotalStatus.status === 'safe' && abuseIpStatus.status === 'unknown') ||
+      (virusTotalStatus.status === 'unknown' && abuseIpStatus.status === 'safe')) {
     return {
       status: 'safe',
-      confidence: Math.max(virusTotalStatus.confidence, abuseIpStatus.confidence)
+      confidence: 75,
+      details: `One service safe, other unknown: VT(${virusTotalStatus.status}) AB(${abuseIpStatus.status})`
     };
   }
 
-  return {
-    status: 'unknown',
-    confidence: 0
+  // If both services are unknown, mark as safe with low confidence
+  if (virusTotalStatus.status === 'unknown' && abuseIpStatus.status === 'unknown') {
+    return {
+      status: 'safe',
+      confidence: 60,
+      details: 'Both services returned unknown results - assuming safe'
+    };
+  }
+
+  // Default to suspicious for any other case
+  const finalResult = {
+    status: 'suspicious',
+    confidence: 40,
+    details: 'Unable to determine clear status'
   };
+  
+  console.log('Final Result:', finalResult);
+  console.log('=== END SCAN DEBUG ===');
+  
+  return finalResult;
 }
+
+// GET /api/scan/debug/:url - Debug scan for a specific URL (for testing)
+router.get('/debug/:url', optionalAuth, async (req, res) => {
+  try {
+    const { url } = req.params;
+    const decodedUrl = decodeURIComponent(url);
+    
+    console.log(`Debug scan requested for: ${decodedUrl}`);
+    
+    // Check reputation
+    const reputationResult = await reputationService.checkUrlReputation(decodedUrl);
+    
+    // Check VirusTotal
+    const virusTotalResult = await virusTotalService.scanUrl(decodedUrl);
+    const virusTotalAnalysis = virusTotalResult.success ? 
+      virusTotalService.analyzeThreatLevel(virusTotalResult.data) : 
+      { status: 'failed', confidence: 0 };
+    
+    // Check AbuseIPDB
+    const abuseIpResult = await abuseIpService.checkUrl(decodedUrl);
+    const abuseIpAnalysis = abuseIpResult.success ? 
+      abuseIpService.analyzeThreatLevel(abuseIpResult.data) : 
+      { status: 'failed', confidence: 0 };
+    
+    // Determine overall status
+    const overallStatus = determineOverallStatus(virusTotalResult, abuseIpResult);
+    
+    res.json({
+      success: true,
+      data: {
+        url: decodedUrl,
+        reputation: reputationResult,
+        virusTotal: {
+          raw: virusTotalResult,
+          analysis: virusTotalAnalysis
+        },
+        abuseIPDB: {
+          raw: abuseIpResult,
+          analysis: abuseIpAnalysis
+        },
+        overallStatus: overallStatus,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Debug scan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;

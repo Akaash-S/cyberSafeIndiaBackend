@@ -397,6 +397,130 @@ router.get('/admin', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/analytics/reputation - Get reputation analytics
+router.get('/reputation', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    // Get user's reputation contribution stats
+    const userReputationQuery = `
+      SELECT 
+        (SELECT COUNT(*) FROM threat_urls WHERE reported_by = $1) as threat_reports,
+        (SELECT COUNT(*) FROM safe_urls WHERE verified_by = $1) as safe_reports,
+        (SELECT COUNT(*) FROM reports WHERE user_id = $1) as total_reports
+    `;
+
+    const userReputationResult = await pool.query(userReputationQuery, [userId]);
+    const userReputation = userReputationResult.rows[0];
+
+    // Get community reputation statistics
+    const communityStatsQuery = `
+      SELECT 
+        (SELECT COUNT(*) FROM safe_urls) as total_safe_urls,
+        (SELECT COUNT(*) FROM threat_urls) as total_threat_urls,
+        (SELECT COUNT(*) FROM url_reputation) as total_reputation_records,
+        (SELECT SUM(report_count) FROM safe_urls) as total_safe_reports,
+        (SELECT SUM(report_count) FROM threat_urls) as total_threat_reports
+    `;
+
+    const communityStatsResult = await pool.query(communityStatsQuery);
+    const communityStats = communityStatsResult.rows[0];
+
+    // Get threat type breakdown
+    const threatTypeQuery = `
+      SELECT 
+        threat_type,
+        COUNT(*) as count,
+        SUM(report_count) as total_reports,
+        AVG(confidence_score) as avg_confidence
+      FROM threat_urls 
+      GROUP BY threat_type
+      ORDER BY count DESC
+    `;
+
+    const threatTypeResult = await pool.query(threatTypeQuery);
+
+    // Get reputation trends over time
+    const reputationTrendsQuery = `
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(CASE WHEN 'safe_urls' = 'safe_urls' THEN 1 END) as safe_additions,
+        COUNT(CASE WHEN 'threat_urls' = 'threat_urls' THEN 1 END) as threat_additions
+      FROM (
+        SELECT created_at, 'safe_urls' as table_name FROM safe_urls
+        UNION ALL
+        SELECT created_at, 'threat_urls' as table_name FROM threat_urls
+      ) combined
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `;
+
+    const reputationTrendsResult = await pool.query(reputationTrendsQuery);
+
+    // Get most reported domains
+    const topReportedDomainsQuery = `
+      SELECT 
+        domain,
+        COUNT(*) as total_reports,
+        COUNT(CASE WHEN 'safe_urls' = 'safe_urls' THEN 1 END) as safe_reports,
+        COUNT(CASE WHEN 'threat_urls' = 'threat_urls' THEN 1 END) as threat_reports
+      FROM (
+        SELECT domain, 'safe_urls' as table_name FROM safe_urls
+        UNION ALL
+        SELECT domain, 'threat_urls' as table_name FROM threat_urls
+      ) combined
+      GROUP BY domain
+      ORDER BY total_reports DESC
+      LIMIT 10
+    `;
+
+    const topReportedDomainsResult = await pool.query(topReportedDomainsQuery);
+
+    res.json({
+      success: true,
+      data: {
+        userContribution: {
+          threatReports: parseInt(userReputation.threat_reports),
+          safeReports: parseInt(userReputation.safe_reports),
+          totalReports: parseInt(userReputation.total_reports)
+        },
+        communityStats: {
+          totalSafeUrls: parseInt(communityStats.total_safe_urls),
+          totalThreatUrls: parseInt(communityStats.total_threat_urls),
+          totalReputationRecords: parseInt(communityStats.total_reputation_records),
+          totalSafeReports: parseInt(communityStats.total_safe_reports),
+          totalThreatReports: parseInt(communityStats.total_threat_reports)
+        },
+        threatTypeBreakdown: threatTypeResult.rows.map(row => ({
+          type: row.threat_type,
+          count: parseInt(row.count),
+          totalReports: parseInt(row.total_reports),
+          avgConfidence: parseFloat(row.avg_confidence)
+        })),
+        reputationTrends: reputationTrendsResult.rows.map(row => ({
+          date: row.date,
+          safeAdditions: parseInt(row.safe_additions),
+          threatAdditions: parseInt(row.threat_additions)
+        })),
+        topReportedDomains: topReportedDomainsResult.rows.map(row => ({
+          domain: row.domain,
+          totalReports: parseInt(row.total_reports),
+          safeReports: parseInt(row.safe_reports),
+          threatReports: parseInt(row.threat_reports)
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Reputation analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch reputation analytics'
+    });
+  }
+});
+
 // GET /api/analytics/export - Export analytics data
 router.get('/export', authenticateUser, async (req, res) => {
   try {

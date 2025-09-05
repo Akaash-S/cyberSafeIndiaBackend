@@ -154,13 +154,20 @@ class VirusTotalService {
     const maliciousPercentage = (malicious / total) * 100;
     const suspiciousPercentage = (suspicious / total) * 100;
 
+    // More conservative thresholds for better accuracy
     if (maliciousPercentage >= 50) {
       return {
         status: 'malicious',
         confidence: maliciousPercentage,
         details: `${malicious} out of ${total} engines detected this as malicious`
       };
-    } else if (maliciousPercentage >= 10 || suspiciousPercentage >= 30) {
+    } else if (maliciousPercentage >= 20 || suspiciousPercentage >= 40) {
+      return {
+        status: 'suspicious',
+        confidence: Math.max(maliciousPercentage, suspiciousPercentage),
+        details: `${malicious} malicious, ${suspicious} suspicious out of ${total} engines`
+      };
+    } else if (maliciousPercentage >= 5 || suspiciousPercentage >= 15) {
       return {
         status: 'suspicious',
         confidence: Math.max(maliciousPercentage, suspiciousPercentage),

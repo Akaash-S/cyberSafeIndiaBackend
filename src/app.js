@@ -25,6 +25,7 @@ const historyRoutes = require('./routes/historyRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const reputationRoutes = require('./routes/reputationRoutes');
 
 // Create Express app
 const app = express();
@@ -80,6 +81,12 @@ app.get('/api', (req, res) => {
         'GET /api/reports/stats': 'Get report statistics (admin only)',
         'GET /api/reports/my': 'Get user\'s reports (authenticated)'
       },
+      reputation: {
+        'POST /api/reputation/check': 'Check URL reputation in community database',
+        'POST /api/reputation/report-threat': 'Report URL as threat (authenticated)',
+        'POST /api/reputation/report-safe': 'Report URL as safe (authenticated)',
+        'GET /api/reputation/stats': 'Get reputation statistics'
+      },
       analytics: {
         'GET /api/analytics/overview': 'Get analytics overview (authenticated)',
         'GET /api/analytics/trends': 'Get scan trends (authenticated)',
@@ -113,6 +120,7 @@ app.use('/api/scan', scanLimiter, scanRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/report', reportLimiter, reportRoutes);
 app.use('/api/reports', reportLimiter, reportRoutes);
+app.use('/api/reputation', reportLimiter, reputationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
 

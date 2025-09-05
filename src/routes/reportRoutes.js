@@ -13,6 +13,13 @@ const reportSchema = Joi.object({
   }),
   reason: Joi.string().max(500).optional().messages({
     'string.max': 'Reason must be less than 500 characters'
+  }),
+  threatType: Joi.string().valid('malware', 'phishing', 'suspicious', 'spam', 'other').required().messages({
+    'any.only': 'Threat type must be one of: malware, phishing, suspicious, spam, other',
+    'any.required': 'Threat type is required'
+  }),
+  severity: Joi.string().valid('low', 'medium', 'high', 'critical').default('medium').messages({
+    'any.only': 'Severity must be one of: low, medium, high, critical'
   })
 });
 
@@ -40,8 +47,17 @@ router.post('/report', authenticateUser, async (req, res) => {
       });
     }
 
-    const { url, reason } = value;
+    const { url, reason, threatType, severity } = value;
     const userId = req.user.uid;
+
+    // Extract domain from URL
+    let domain = '';
+    try {
+      const urlObj = new URL(url);
+      domain = urlObj.hostname;
+    } catch (error) {
+      console.error('Error extracting domain from URL:', error);
+    }
 
     // Check if user has already reported this URL recently (within last 24 hours)
     const recentReport = await pool.query(
@@ -56,14 +72,24 @@ router.post('/report', authenticateUser, async (req, res) => {
       });
     }
 
-    // Insert new report
+    // Insert new report with enhanced data
     const result = await pool.query(
-      'INSERT INTO reports (user_id, url, reason, status) VALUES ($1, $2, $3, $4) RETURNING id, report_date',
-      [userId, url, reason || null, 'pending']
+      'INSERT INTO reports (user_id, url, reason, threat_type, severity, domain, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, report_date',
+      [userId, url, reason || null, threatType, severity, domain, 'pending']
     );
 
     const reportId = result.rows[0].id;
     const reportDate = result.rows[0].report_date;
+
+    // Update community reputation system
+    try {
+      const reputationService = require('../services/reputationService');
+      await reputationService.reportThreatUrl(url, threatType, severity, userId);
+      console.log(`Community reputation updated for reported URL: ${url}`);
+    } catch (reputationError) {
+      console.error('Error updating community reputation:', reputationError);
+      // Don't fail the report submission if reputation update fails
+    }
 
     res.status(201).json({
       success: true,
@@ -71,9 +97,12 @@ router.post('/report', authenticateUser, async (req, res) => {
         id: reportId,
         url: url,
         reason: reason,
+        threatType: threatType,
+        severity: severity,
+        domain: domain,
         status: 'pending',
         reportDate: reportDate,
-        message: 'Report submitted successfully. Our team will review it shortly.'
+        message: 'Threat report submitted successfully. Our team will review it shortly.'
       }
     });
 
@@ -107,8 +136,14 @@ router.get('/reports', requireAdmin, async (req, res) => {
         r.id, 
         r.url, 
         r.reason, 
+        r.threat_type,
+        r.severity,
+        r.domain,
         r.status, 
         r.report_date,
+        r.admin_notes,
+        r.reviewed_by,
+        r.reviewed_at,
         u.email as reporter_email,
         u.display_name as reporter_name
       FROM reports r
@@ -159,8 +194,14 @@ router.get('/reports', requireAdmin, async (req, res) => {
       id: row.id,
       url: row.url,
       reason: row.reason,
+      threatType: row.threat_type,
+      severity: row.severity,
+      domain: row.domain,
       status: row.status,
       reportDate: row.report_date,
+      adminNotes: row.admin_notes,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: row.reviewed_at,
       reporter: {
         email: row.reporter_email,
         name: row.reporter_name
@@ -381,7 +422,7 @@ router.get('/reports/my', authenticateUser, async (req, res) => {
 
     // Get user's reports
     const result = await pool.query(
-      'SELECT id, url, reason, status, report_date FROM reports WHERE user_id = $1 ORDER BY report_date DESC',
+      'SELECT id, url, reason, threat_type, severity, domain, status, report_date FROM reports WHERE user_id = $1 ORDER BY report_date DESC',
       [userId]
     );
 
@@ -389,6 +430,9 @@ router.get('/reports/my', authenticateUser, async (req, res) => {
       id: row.id,
       url: row.url,
       reason: row.reason,
+      threatType: row.threat_type,
+      severity: row.severity,
+      domain: row.domain,
       status: row.status,
       reportDate: row.report_date
     }));
@@ -403,6 +447,123 @@ router.get('/reports/my', authenticateUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch your reports'
+    });
+  }
+});
+
+// GET /api/reports/analytics - Get threat reports analytics for analytics page
+router.get('/reports/analytics', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    // Get user's threat reports statistics
+    const userStatsQuery = `
+      SELECT 
+        COUNT(*) as total_reports,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_reports,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_reports,
+        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_reports
+      FROM reports 
+      WHERE user_id = $1
+    `;
+
+    const userStatsResult = await pool.query(userStatsQuery, [userId]);
+    const userStats = userStatsResult.rows[0];
+
+    // Get threat type breakdown for user
+    const threatTypeQuery = `
+      SELECT 
+        threat_type,
+        COUNT(*) as count,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_count
+      FROM reports 
+      WHERE user_id = $1
+      GROUP BY threat_type
+      ORDER BY count DESC
+    `;
+
+    const threatTypeResult = await pool.query(threatTypeQuery, [userId]);
+
+    // Get severity breakdown for user
+    const severityQuery = `
+      SELECT 
+        severity,
+        COUNT(*) as count
+      FROM reports 
+      WHERE user_id = $1
+      GROUP BY severity
+      ORDER BY count DESC
+    `;
+
+    const severityResult = await pool.query(severityQuery, [userId]);
+
+    // Get recent reports (last 30 days)
+    const recentReportsQuery = `
+      SELECT 
+        DATE(report_date) as report_date,
+        COUNT(*) as count,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_count
+      FROM reports 
+      WHERE user_id = $1 
+        AND report_date >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(report_date)
+      ORDER BY report_date DESC
+    `;
+
+    const recentReportsResult = await pool.query(recentReportsQuery, [userId]);
+
+    // Get most reported domains by user
+    const userDomainsQuery = `
+      SELECT 
+        domain,
+        COUNT(*) as count,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_count
+      FROM reports 
+      WHERE user_id = $1 
+        AND domain IS NOT NULL
+      GROUP BY domain
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+
+    const userDomainsResult = await pool.query(userDomainsQuery, [userId]);
+
+    res.json({
+      success: true,
+      data: {
+        userStats: {
+          totalReports: parseInt(userStats.total_reports),
+          approvedReports: parseInt(userStats.approved_reports),
+          pendingReports: parseInt(userStats.pending_reports),
+          rejectedReports: parseInt(userStats.rejected_reports)
+        },
+        threatTypeBreakdown: threatTypeResult.rows.map(row => ({
+          type: row.threat_type,
+          count: parseInt(row.count),
+          approvedCount: parseInt(row.approved_count)
+        })),
+        severityBreakdown: severityResult.rows.map(row => ({
+          severity: row.severity,
+          count: parseInt(row.count)
+        })),
+        recentReports: recentReportsResult.rows.map(row => ({
+          date: row.report_date,
+          count: parseInt(row.count),
+          approvedCount: parseInt(row.approved_count)
+        })),
+        topReportedDomains: userDomainsResult.rows.map(row => ({
+          domain: row.domain,
+          count: parseInt(row.count),
+          approvedCount: parseInt(row.approved_count)
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Threat reports analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch threat reports analytics'
     });
   }
 });
