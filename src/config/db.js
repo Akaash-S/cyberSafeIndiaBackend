@@ -65,9 +65,10 @@ const initializeDatabase = async () => {
         email VARCHAR(255) UNIQUE NOT NULL,
         display_name VARCHAR(255),
         photo_url TEXT,
-        admin BOOLEAN DEFAULT FALSE,
+        firebase_uid TEXT NOT NULL,
+        notification_preferences JSONB DEFAULT '{"email": true, "push": true, "security": true, "weekly": false, "threatAlerts": true, "scanComplete": true, "reportUpdates": true}',
         created_at TIMESTAMP DEFAULT NOW(),
-        last_login TIMESTAMP DEFAULT NOW()
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
 

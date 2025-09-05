@@ -26,6 +26,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reputationRoutes = require('./routes/reputationRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Create Express app
 const app = express();
@@ -123,6 +124,7 @@ app.use('/api/reports', reportLimiter, reportRoutes);
 app.use('/api/reputation', reportLimiter, reputationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminLimiter, adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
