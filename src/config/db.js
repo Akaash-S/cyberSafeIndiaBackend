@@ -68,7 +68,9 @@ const initializeDatabase = async () => {
         firebase_uid TEXT NOT NULL,
         notification_preferences JSONB DEFAULT '{"email": true, "push": true, "security": true, "weekly": false, "threatAlerts": true, "scanComplete": true, "reportUpdates": true}',
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
+        updated_at TIMESTAMP DEFAULT NOW(),
+        last_login TIMESTAMP,
+        email_verified BOOLEAN DEFAULT FALSE
       )
     `);
 

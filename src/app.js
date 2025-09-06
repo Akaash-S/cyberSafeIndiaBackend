@@ -59,9 +59,11 @@ app.get('/api', (req, res) => {
     version: '1.0.0',
     endpoints: {
       user: {
-        'POST /api/user/register': 'Register user after Firebase auth',
+        'POST /api/user/login': 'Login or register user with Firebase ID token',
         'GET /api/user/profile': 'Get user profile (authenticated)',
-        'PUT /api/user/profile': 'Update user profile (authenticated)'
+        'PUT /api/user/profile': 'Update user profile (authenticated)',
+        'DELETE /api/user/profile': 'Delete user account (authenticated)',
+        'GET /api/user/verify-email': 'Verify user email (Firebase action code)'
       },
       scan: {
         'POST /api/scan': 'Scan a single URL',
@@ -105,9 +107,9 @@ app.get('/api', (req, res) => {
       }
     },
     authentication: {
-      type: 'Bearer Token (Base64 encoded user data)',
-      header: 'Authorization: Bearer <base64_encoded_user_data>',
-      note: 'Frontend handles Firebase auth and sends user data to backend. Most endpoints require authentication. Admin endpoints require admin role.'
+      type: 'Firebase ID Token',
+      header: 'Authorization: Bearer <firebase_id_token>',
+      note: 'Frontend handles Firebase auth and sends ID token to backend. Most endpoints require authentication. Admin endpoints require admin role.'
     }
   });
 });
