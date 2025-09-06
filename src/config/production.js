@@ -26,7 +26,7 @@ const productionConfig = {
     origin: [
       process.env.FRONTEND_URL,
       process.env.EXTENSION_URL,
-      'https://cybersafe-india.vercel.app', // Production frontend
+      'https://cybersafe-india.vercel.app', // Your production frontend
       'http://localhost:5173', // Development
       'http://localhost:3000', // Alternative development
     ].filter(Boolean), // Remove undefined values

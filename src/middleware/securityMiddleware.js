@@ -50,7 +50,7 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
       process.env.EXTENSION_URL,
-      'https://cybersafe-india.vercel.app', // Production frontend
+      'https://cybersafe-india.vercel.app', // Your production frontend
       'http://localhost:5173', // Vite dev server
       'http://localhost:3000', // Alternative dev server
       'chrome-extension://*' // Browser extensions

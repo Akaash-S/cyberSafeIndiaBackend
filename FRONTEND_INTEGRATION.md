@@ -284,7 +284,7 @@ export default new ApiService();
 
 ### Frontend (.env)
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+VITE_API_BASE_URL=https://cybersafeindiabackend-1.onrender.com/api
 REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
 REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 REACT_APP_FIREBASE_PROJECT_ID=your_project_id
@@ -297,7 +297,7 @@ VIRUSTOTAL_API_KEY=your_virustotal_api_key
 ABUSEIPDB_API_KEY=your_abuseipdb_api_key
 PORT=5000
 NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=https://cybersafe-india.vercel.app
 ```
 
 ## 🚨 **Important Notes**
@@ -329,7 +329,7 @@ const handleScanUrl = async () => {
 // 3. Get user profile
 const getUserProfile = async () => {
   if (user) {
-    const response = await fetch('http://localhost:5000/api/user/profile', {
+    const response = await fetch('https://cybersafeindiabackend-1.onrender.com/api/user/profile', {
       headers: {
         'Authorization': createAuthHeader(user)
       }

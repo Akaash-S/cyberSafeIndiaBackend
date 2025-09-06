@@ -66,7 +66,7 @@ ABUSEIPDB_API_KEY=your_abuseipdb_key
 # Server
 PORT=5000
 NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=https://cybersafe-india.vercel.app
 ```
 
 ### 3. Start Development Server
@@ -81,7 +81,7 @@ The server will start on `http://localhost:5000`
 
 ### Base URL
 ```
-http://localhost:5000/api
+https://cybersafeindiabackend-1.onrender.com/api
 ```
 
 ### Authentication
